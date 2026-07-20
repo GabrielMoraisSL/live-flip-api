@@ -14,8 +14,8 @@ export class AutenticacaoService {
     private readonly configService: ConfigService,
   ) {}
 
-  logar(acesso: AutenticacaoLogarDto): AutenticacaoResponseDto {
-    const usuarioEncontrado = this.usuariosService.encontrarPorNome(
+  async logar(acesso: AutenticacaoLogarDto): Promise<AutenticacaoResponseDto> {
+    const usuarioEncontrado = await this.usuariosService.encontrarPorNome(
       acesso.nome,
     );
 
@@ -30,7 +30,7 @@ export class AutenticacaoService {
 
     const payload = {
       sub: usuarioEncontrado.id,
-      userName: usuarioEncontrado.nome,
+      nome: usuarioEncontrado.nome,
     };
 
     const token = this.jwtService.sign(payload);

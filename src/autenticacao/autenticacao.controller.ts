@@ -9,7 +9,7 @@ export class AutenticacaoController {
 
   @HttpCode(HttpStatus.OK)
   @Post('logar')
-  logar(@Body() acesso: AutenticacaoLogarDto): AutenticacaoResponseDto {
+  logar(@Body() acesso: AutenticacaoLogarDto): Promise<AutenticacaoResponseDto> {
     return this.autenticacaoService.logar(acesso);
   }
 }

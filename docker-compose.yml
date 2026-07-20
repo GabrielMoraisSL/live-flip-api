@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  postgress:
+    image: postgres:latest
+    container_name: live-flip-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: live-flip-db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 18f4e2784880df6abdfd506f4b7ffe797ac47520d424ebf9

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
-import { UsuarioDto } from './dros/usuario.dto';
+import { CriarUsuarioDto } from './dtos/criar-usuario.dto';
+import { UsuarioResponseDto } from './dtos/usuario-response.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
 @UseGuards(AuthGuard)
@@ -9,12 +10,12 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  create(@Body() usuario: UsuarioDto): string {
+  create(@Body() usuario: CriarUsuarioDto): Promise<string> {
     return this.usuariosService.criar(usuario);
   }
 
   @Get()
-  findAll(): UsuarioDto[] {
+  findAll(): Promise<UsuarioResponseDto[]> {
     return this.usuariosService.listar();
   }
 }

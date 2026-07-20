@@ -1,62 +1,149 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PostagemDto } from './dtos/postagem.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Postagem } from '../db/entities/postagem.entity';
+import { CriarPostagemDto } from './dtos/criar-postagem.dto';
+import { AtualizarPostagemDto } from './dtos/atualizar-postagem.dto';
 import { FindAllParametrosDto } from './dtos/find-all-parametros.dto';
-import { v4 } from 'uuid';
+import { PostagemDto } from './dtos/postagem.dto';
 
 @Injectable()
 export class PostagensService {
-  private postagens: PostagemDto[] = [];
+  constructor(
+    @InjectRepository(Postagem)
+    private readonly postagemRepository: Repository<Postagem>,
+  ) {}
 
-  criar(postagem: PostagemDto) {
-    postagem.id = v4();
-    this.postagens.push(postagem);
-    return postagem.id;
-  }
-
-  listar(params: FindAllParametrosDto) {
-    return this.postagens.filter((p) => {
-      let match = true;
-
-      if (params.titulo != undefined && !p.titulo.includes(params.titulo)) {
-        match = false;
-      }
-
-      if (params.local != undefined && !p.local.includes(params.local)) {
-        match = false;
-      }
-
-      return match;
+  async criar(dto: CriarPostagemDto, usuarioId: string): Promise<string> {
+    const postagem = this.postagemRepository.create({
+      titulo: dto.titulo,
+      local: dto.local,
+      midia: dto.midia,
+      usuarioId,
+      conquistaId: dto.conquistaId ?? undefined,
     });
+    const saved = await this.postagemRepository.save(postagem);
+    return saved.id;
   }
 
-  encontrarPorId(id: string) {
-    const foundPost = this.postagens.filter((e) => e.id === id);
+  async listar(params: FindAllParametrosDto): Promise<PostagemDto[]> {
+    const where: any = {};
 
-    if (foundPost.length) {
-      return foundPost[0];
+    if (params.titulo) {
+      where.titulo = params.titulo;
     }
-    throw new NotFoundException('Nenhum item encontrado com esse id');
+    if (params.local) {
+      where.local = params.local;
+    }
+
+    const postagens = await this.postagemRepository.find({
+      where,
+      relations: ['usuario', 'conquista', 'curtidas'],
+    });
+
+    return postagens.map((p) => this.toDto(p));
   }
 
-  atualizar(postagem: PostagemDto) {
-    const postIndex = this.postagens.findIndex((p) => p.id === postagem.id);
+  async encontrarPorId(id: string): Promise<PostagemDto> {
+    const postagem = await this.postagemRepository.findOne({
+      where: { id },
+      relations: ['usuario', 'conquista', 'curtidas'],
+    });
 
-    if (postIndex >= 0) {
-      this.postagens[postIndex] = postagem;
-      return;
+    if (!postagem) {
+      throw new NotFoundException('Nenhum item encontrado com esse id');
     }
 
-    throw new NotFoundException('Nenhum item encontrado com esse id');
+    return this.toDto(postagem);
   }
 
-  remover(id: string) {
-    const postIndex = this.postagens.findIndex((p) => p.id === id);
+  async atualizar(id: string, dto: AtualizarPostagemDto): Promise<void> {
+    const postagem = await this.postagemRepository.findOne({
+      where: { id },
+    });
 
-    if (postIndex >= 0) {
-      this.postagens.splice(postIndex, 1);
-      return;
+    if (!postagem) {
+      throw new NotFoundException('Nenhum item encontrado com esse id');
     }
 
-    throw new NotFoundException('Nenhum item encontrado com esse id');
+    if (dto.titulo !== undefined) postagem.titulo = dto.titulo;
+    if (dto.local !== undefined) postagem.local = dto.local;
+    if (dto.midia !== undefined) postagem.midia = dto.midia;
+    if (dto.conquistaId !== undefined) postagem.conquistaId = dto.conquistaId;
+
+    await this.postagemRepository.save(postagem);
+  }
+
+  async remover(id: string): Promise<void> {
+    const resultado = await this.postagemRepository.delete(id);
+
+    if (!resultado.affected) {
+      throw new NotFoundException('Nenhum item encontrado com esse id');
+    }
+  }
+
+  async curtir(postagemId: string, usuarioId: string): Promise<void> {
+    const postagem = await this.postagemRepository.findOne({
+      where: { id: postagemId },
+      relations: ['curtidas'],
+    });
+
+    if (!postagem) {
+      throw new NotFoundException('Postagem não encontrada');
+    }
+
+    const jaCurtiu = postagem.curtidas.some((u) => u.id === usuarioId);
+    if (!jaCurtiu) {
+      await this.postagemRepository
+        .createQueryBuilder()
+        .relation(Postagem, 'curtidas')
+        .of(postagemId)
+        .add(usuarioId);
+    }
+  }
+
+  async descurtir(postagemId: string, usuarioId: string): Promise<void> {
+    const postagem = await this.postagemRepository.findOne({
+      where: { id: postagemId },
+      relations: ['curtidas'],
+    });
+
+    if (!postagem) {
+      throw new NotFoundException('Postagem não encontrada');
+    }
+
+    const jaCurtiu = postagem.curtidas.some((u) => u.id === usuarioId);
+    if (jaCurtiu) {
+      await this.postagemRepository
+        .createQueryBuilder()
+        .relation(Postagem, 'curtidas')
+        .of(postagemId)
+        .remove(usuarioId);
+    }
+  }
+
+  private toDto(entity: Postagem): PostagemDto {
+    return {
+      id: entity.id,
+      titulo: entity.titulo,
+      local: entity.local,
+      midia: entity.midia,
+      usuarioId: entity.usuarioId,
+      usuario: entity.usuario
+        ? { id: entity.usuario.id, nome: entity.usuario.nome }
+        : undefined,
+      conquistaId: entity.conquistaId ?? undefined,
+      conquista: entity.conquista
+        ? {
+            id: entity.conquista.id,
+            nome: entity.conquista.nome,
+            base: entity.conquista.base,
+            pontuacao: entity.conquista.pontuacao,
+          }
+        : undefined,
+      curtidas: entity.curtidas?.map((u) => ({ id: u.id, nome: u.nome })),
+      criadoEm: entity.criadoEm.toISOString(),
+      atualizadoEm: entity.atualizadoEm.toISOString(),
+    };
   }
 }

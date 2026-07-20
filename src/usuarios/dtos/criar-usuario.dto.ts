@@ -1,9 +1,6 @@
-import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 
-export class UsuarioDto {
-  @IsUUID()
-  id: string;
-
+export class CriarUsuarioDto {
   @IsString()
   @MinLength(3)
   @MaxLength(256)

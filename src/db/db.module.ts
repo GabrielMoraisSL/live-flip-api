@@ -5,14 +5,14 @@ import { ConfigService } from '@nestjs/config';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<string>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWD'),
-        database: configService.get<string>('DB_NAME'),
-        entities: [__dirname + '/entities/**'],
+        host: configService.get<string>('DB_HOST') || '',
+        port: Number(configService.get<string>('DB_PORT')) || 3000,
+        username: configService.get<string>('DB_USER') || '',
+        password: configService.get<string>('DB_PASSWD') || '',
+        database: configService.get<string>('DB_NAME') || '',
+        entities: [__dirname + '/entities/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*.ts'],
         synchronize: false,
       }),
